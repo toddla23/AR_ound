@@ -1,0 +1,27 @@
+# Unity auto-generated
+[Ll]ibrary/
+[Tt]emp/
+[Oo]bj/
+[Bb]uild/
+[Bb]uilds/
+[Ll]ogs/
+UserSettings/
+
+# Android/iOS builds
+*.apk
+*.aab
+*.ipa
+*.xcworkspace/
+*.xcuserstate
+
+# VS/IDE
+.vscode/
+.idea/
+*.csproj
+*.sln
+*.user
+*.vs/
+
+# OS
+.DS_Store
+Thumbs.db
