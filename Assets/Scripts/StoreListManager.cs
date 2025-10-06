@@ -1,56 +1,80 @@
+using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.Networking;
 using UnityEngine.SceneManagement;
 
 public class StoreListManager : MonoBehaviour
 {
     [SerializeField] private RectTransform contentParent; // ScrollView Content
-    [SerializeField] private StoreItem itemPrefab;        // StoreItem 타입으로 드래그
+    [SerializeField] private StoreItem itemPrefab;        // StoreItem 프리팹 드래그
 
-    // 더미 데이터 (원하면 Inspector에서 넣어도 됨)
-    private List<StoreData> storeList = new List<StoreData>
-    {
-        new StoreData("1", "스타벅스"),
-        new StoreData("2", "이디야"),
-        new StoreData("3", "메가커피"),
-        new StoreData("4", "투썸플레이스"),
-        new StoreData("5", "빽다방")
-    };
+    private string storeListUrl = "http://localhost:8080/stores"; // 테스트용 URL
 
     void Start()
     {
-        PopulateStoreList(storeList);
+        // JSON 다운로드 시작
+        StartCoroutine(LoadStoreListFromServer());
+    }
+
+    IEnumerator LoadStoreListFromServer()
+    {
+        // 예시) 실제 요청
+        UnityWebRequest request = UnityWebRequest.Get(storeListUrl);
+
+        yield return request.SendWebRequest();
+
+        if (request.result != UnityWebRequest.Result.Success)
+        {
+            Debug.LogError($"❌ 서버 요청 실패: {request.error}");
+            // 실패 시 임시 더미데이터 사용
+            List<StoreData> dummy = new List<StoreData>
+            {
+                new StoreData("1", "스타벅스"),
+            };
+            PopulateStoreList(dummy);
+        }
+        else
+        {
+            // ✅ JSON 파싱
+            string json = request.downloadHandler.text;
+
+            // JSON 배열을 감싸기 위해 Wrapper 사용
+            json = "{\"items\":" + json + "}";
+
+            StoreListWrapper wrapper = JsonUtility.FromJson<StoreListWrapper>(json);
+            PopulateStoreList(wrapper.items);
+        }
     }
 
     void PopulateStoreList(List<StoreData> stores)
     {
-        // 기존 항목 삭제 (테스트용)
-        foreach (Transform child in contentParent) Destroy(child.gameObject);
+        foreach (Transform child in contentParent)
+            Destroy(child.gameObject);
 
         foreach (var s in stores)
         {
-            // Instantiate (프리팹은 StoreItem 타입)
             StoreItem item = Instantiate(itemPrefab, contentParent);
-            item.transform.localScale = Vector3.one; // Scale 문제 예방
-
-            // 초기화: 클릭 시 OnStoreSelected 호출
+            item.transform.localScale = Vector3.one;
             item.Init(s, OnStoreSelected);
         }
     }
 
     void OnStoreSelected(StoreData selected)
     {
-        // 선택 정보 저장 (간단한 방법)
         PlayerPrefs.SetString("SelectedStoreID", selected.id);
         PlayerPrefs.SetString("SelectedStoreName", selected.name);
-
-        // 상세 씬으로 이동
         SceneManager.LoadScene("StoreDetailScene");
     }
 
-    // Back 버튼에서 호출
     public void OnBackButton()
     {
         SceneManager.LoadScene("MainPage");
+    }
+
+    [System.Serializable]
+    private class StoreListWrapper
+    {
+        public List<StoreData> items;
     }
 }
