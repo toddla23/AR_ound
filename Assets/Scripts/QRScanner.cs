@@ -1,106 +1,113 @@
 using System.Collections;
 using UnityEngine;
-using UnityEngine.UI;
+using UnityEngine.XR.ARFoundation;
+using UnityEngine.XR.ARSubsystems;
 using ZXing;
-using TMPro;
-using UnityEngine.SceneManagement;
+using Unity.Collections;
 
 public class QRScanner : MonoBehaviour
 {
-    [SerializeField] private RawImage cameraPreview;   // 카메라 출력
-    [SerializeField] private TMP_Text resultText;      // QR 결과 표시
+    [SerializeField] private ARCameraManager arCameraManager;
 
-    private WebCamTexture webcamTexture;
-    private bool isScanning = false;
+    private Texture2D cameraTexture;
+    private bool isProcessing = false;
 
-    void Start()
+    private void OnEnable()
     {
-        WebCamDevice[] devices = WebCamTexture.devices;
-        if (devices.Length > 0)
-        {
-            webcamTexture = new WebCamTexture(devices[0].name);
-            cameraPreview.texture = webcamTexture;
-            webcamTexture.Play();
-            isScanning = true;
-
-            // 카메라 크기 조정
-            StartCoroutine(AdjustCameraWidth());
-            StartCoroutine(ScanQRCode());
-        }
+        if (arCameraManager != null)
+            arCameraManager.frameReceived += OnCameraFrameReceived;
         else
+            Debug.LogError("[QRScanner] ARCameraManager NOT assigned!");
+    }
+
+    private void OnDisable()
+    {
+        if (arCameraManager != null)
+            arCameraManager.frameReceived -= OnCameraFrameReceived;
+    }
+
+    private void OnCameraFrameReceived(ARCameraFrameEventArgs args)
+    {
+        if (isProcessing) return;
+
+        if (arCameraManager.TryAcquireLatestCpuImage(out XRCpuImage image))
         {
-            resultText.text = "카메라를 찾을 수 없습니다.";
+            StartCoroutine(ProcessImage(image));
         }
     }
 
-    void Update()
+    private IEnumerator ProcessImage(XRCpuImage image)
     {
-        if (webcamTexture == null || !webcamTexture.isPlaying) return;
+        isProcessing = true;
 
-        // 회전 및 세로 반전 보정
-        cameraPreview.rectTransform.localEulerAngles = new Vector3(0, 0, -webcamTexture.videoRotationAngle);
-        cameraPreview.uvRect = new Rect(
-            webcamTexture.videoVerticallyMirrored ? 1 : 0,
-            0,
-            webcamTexture.videoVerticallyMirrored ? -1 : 1,
-            1
-        );
-
-        // 안드로이드 뒤로가기
-        if (Input.GetKeyDown(KeyCode.Escape))
+        // 낮은 해상도로 변환해서 ZXing 처리 속도 최적화
+        var conversionParams = new XRCpuImage.ConversionParams
         {
-            SceneManager.LoadScene("MainPage");
-        }
-    }
+            inputRect = new RectInt(0, 0, image.width, image.height),
+            outputDimensions = new Vector2Int(256, 256),
+            outputFormat = TextureFormat.RGBA32,
+            transformation = XRCpuImage.Transformation.MirrorY
+        };
 
-    // 화면 가로 기준으로 카메라 꽉 채우기
-    IEnumerator AdjustCameraWidth()
-    {
-        yield return new WaitUntil(() => webcamTexture.width > 100);
+        var rawTextureData = new NativeArray<byte>(image.GetConvertedDataSize(conversionParams), Allocator.Temp);
+        image.Convert(conversionParams, rawTextureData);
+        image.Dispose();
 
-        RectTransform parentRect = cameraPreview.transform.parent.GetComponent<RectTransform>();
-        float screenWidth = parentRect.rect.width;
+        if (cameraTexture == null)
+            cameraTexture = new Texture2D(conversionParams.outputDimensions.x,
+                                          conversionParams.outputDimensions.y,
+                                          TextureFormat.RGBA32, false);
 
-        float videoRatio = (float)webcamTexture.width / webcamTexture.height;
-        float targetHeight = screenWidth / videoRatio;
+        cameraTexture.LoadRawTextureData(rawTextureData);
+        cameraTexture.Apply();
+        rawTextureData.Dispose();
 
-        // RawImage 크기 적용
-        cameraPreview.rectTransform.sizeDelta = new Vector2(screenWidth, targetHeight);
+        Debug.Log($"[QRScanner] Processing Texture {cameraTexture.width}x{cameraTexture.height}");
 
-        // 중앙 정렬
-        cameraPreview.rectTransform.anchoredPosition = Vector2.zero;
-    }
-
-    // QR 코드 스캔
-    IEnumerator ScanQRCode()
-    {
-        IBarcodeReader barcodeReader = new BarcodeReader();
-
-        while (isScanning)
+        // ZXing Decode
+        try
         {
-            try
+            var barcodeReader = new BarcodeReader
             {
-                var result = barcodeReader.Decode(webcamTexture.GetPixels32(),
-                                                  webcamTexture.width,
-                                                  webcamTexture.height);
-                if (result != null)
-                {
-                    resultText.text = "QR 코드 인식됨: " + result.Text;
-                    isScanning = false;
+                AutoRotate = true,
+                TryInverted = true
+            };
 
-                    // ARScene 이동 예시
-                    // SceneManager.LoadScene("ARScene");
-                }
+            var result = barcodeReader.Decode(cameraTexture.GetPixels32(), cameraTexture.width, cameraTexture.height);
+
+            if (result != null)
+            {
+                Debug.Log($"✅ QR Detected: {result.Text}");
+                ParseQRData(result.Text);
             }
-            catch { }
-
-            yield return null;
         }
+        catch (System.Exception e)
+        {
+            Debug.LogWarning($"[QRScanner] QR Decode Error: {e.Message}");
+        }
+
+        // 다음 프레임까지 대기
+        yield return new WaitForSeconds(0.2f);
+        isProcessing = false;
     }
 
-    private void OnDestroy()
+    private void ParseQRData(string data)
     {
-        if (webcamTexture != null && webcamTexture.isPlaying)
-            webcamTexture.Stop();
+        // 예: "Prefab=ObjectA;URL=https://unity.com/"
+        var pairs = data.Split(';');
+        foreach (var p in pairs)
+        {
+            var kv = p.Split('=');
+            if (kv.Length == 2)
+            {
+                string key = kv[0].Trim();
+                string value = kv[1].Trim();
+
+                PlayerPrefs.SetString(key, value);
+                Debug.Log($"[QRScanner] Saved {key} = {value}");
+            }
+        }
+        PlayerPrefs.Save();
     }
+    
 }
