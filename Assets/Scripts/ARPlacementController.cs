@@ -13,27 +13,47 @@ public class ARPlacementController : MonoBehaviour
 
     void Update()
     {
-        // QRScanner에서 PlayerPrefs로 저장한 데이터 읽기
-        prefabName = PlayerPrefs.GetString("Prefab");
-        url = PlayerPrefs.GetString("URL");
-        Debug.LogError($"[ARPlacementController] '{prefabName}' catched");
-        Debug.LogError($"[ARPlacementController] '{url}' catched");
+        // ✅ QRScanner에서 저장한 값 불러오기
+        prefabName = PlayerPrefs.GetString("Prefab", "");
+        url = PlayerPrefs.GetString("URL", "");
 
+        // 디버그 로그
+        Debug.Log($"[ARPlacementController] Prefab='{prefabName}', URL='{url}'");
 
-        // 아직 스폰되지 않았고, 프리팹 이름이 있으면 스폰 시도
-        if (!string.IsNullOrEmpty(prefabName) && spawnedObject == null)
+        // ✅ 오브젝트 아직 없고, Prefab이 지정되어 있으면 배치 시도
+        if (spawnedObject == null && !string.IsNullOrEmpty(prefabName))
         {
             TrySpawnPrefab(prefabName);
         }
 
-        // 터치 감지
+        Debug.Log($"[ARPlacementController] touchCount= {Input.touchCount}");
+        // ✅ 터치 감지 후 URL 열기
         if (spawnedObject != null && Input.touchCount > 0)
         {
             Touch touch = Input.GetTouch(0);
+                Debug.Log($"[ARPlacementController] 123456");
+
+
             if (touch.phase == TouchPhase.Began)
             {
-                CheckTouch(touch.position);
+                Debug.Log($"[ARPlacementController] touch Start");
+
+                Ray ray = Camera.main.ScreenPointToRay(touch.position);
+                Debug.Log($"[ARPlacementController] ray Start");
+
+                if (Physics.Raycast(ray, out RaycastHit hit, Mathf.Infinity, ~0))
+                {
+                    Debug.Log($"[ARPlacementController] Ray hit: {hit.transform.name}");
+
+                    if (spawnedObject != null && hit.transform.gameObject == spawnedObject)
+                    {
+                        Debug.Log($"[ARPlacementController] Object touched, opening URL: {url}");
+                        if (!string.IsNullOrEmpty(url))
+                            Application.OpenURL(url);
+                    }
+                }
             }
+
         }
     }
 
@@ -46,33 +66,25 @@ public class ARPlacementController : MonoBehaviour
             return;
         }
 
-        // 화면 중앙에서 평면 감지
+        // 🔹 화면 중앙에서 평면 감지
         List<ARRaycastHit> hits = new List<ARRaycastHit>();
-        if (raycastManager.Raycast(new Vector2(Screen.width / 2, Screen.height / 2), hits, TrackableType.Planes))
+        if (raycastManager.Raycast(new Vector2(Screen.width / 2, Screen.height / 2), hits, TrackableType.PlaneWithinPolygon))
         {
             Pose hitPose = hits[0].pose;
-            spawnedObject = Instantiate(prefab, hitPose.position, hitPose.rotation);
-            Debug.Log($"[ARPlacementController] Spawned {prefabName} at {hitPose.position}");
-        }
-    }
 
-    private void CheckTouch(Vector2 touchPosition)
-    {
-        List<ARRaycastHit> hits = new List<ARRaycastHit>();
-        if (raycastManager.Raycast(touchPosition, hits, TrackableType.Planes))
-        {
-            // 터치가 스폰된 오브젝트 근처면 URL 열기
-            Ray ray = Camera.main.ScreenPointToRay(touchPosition);
-            if (Physics.Raycast(ray, out RaycastHit hit))
+            spawnedObject = Instantiate(prefab, hitPose.position, hitPose.rotation);
+            Debug.Log($"[ARPlacementController] Spawned '{prefabName}' at {hitPose.position}");
+
+            // ✅ Collider 자동 추가 (없을 경우)
+            if (spawnedObject.GetComponent<Collider>() == null)
             {
-                if (hit.transform.gameObject == spawnedObject)
-                {
-                    Debug.Log($"[ARPlacementController] Opening URL: {url}");
-                    if (!string.IsNullOrEmpty(url))
-                        Application.OpenURL(url);
-                }
+                spawnedObject.AddComponent<BoxCollider>();
+                Debug.Log($"[ARPlacementController] Collider added automatically to '{prefabName}'");
             }
         }
+        else
+        {
+            Debug.LogWarning("[ARPlacementController] No plane detected yet, retrying...");
+        }
     }
-    
 }

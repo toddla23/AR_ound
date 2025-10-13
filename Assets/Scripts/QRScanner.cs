@@ -93,11 +93,11 @@ public class QRScanner : MonoBehaviour
 
     private void ParseQRData(string data)
     {
-        // 예: "Prefab=ObjectA;URL=https://unity.com/"
+        // 예: "Prefab=ObjectA;URL=https://www.youtube.com/watch?v=_J-FCm91_is"
         var pairs = data.Split(';');
         foreach (var p in pairs)
         {
-            var kv = p.Split('=');
+            var kv = p.Split(new char[] { '=' }, 2); // 🔹 최대 2개까지만 split
             if (kv.Length == 2)
             {
                 string key = kv[0].Trim();
@@ -106,8 +106,14 @@ public class QRScanner : MonoBehaviour
                 PlayerPrefs.SetString(key, value);
                 Debug.Log($"[QRScanner] Saved {key} = {value}");
             }
+            else
+            {
+                Debug.LogWarning($"[QRScanner] Invalid pair skipped: {p}");
+            }
         }
+
         PlayerPrefs.Save();
     }
-    
+
+
 }
