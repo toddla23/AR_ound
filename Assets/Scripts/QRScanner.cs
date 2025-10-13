@@ -4,13 +4,15 @@ using UnityEngine.XR.ARFoundation;
 using UnityEngine.XR.ARSubsystems;
 using ZXing;
 using Unity.Collections;
+using UnityEngine.UI; // ✅ UI 사용 추가
 
 public class QRScanner : MonoBehaviour
 {
     [SerializeField] private ARCameraManager arCameraManager;
-
+    [SerializeField] private Text toastText; // ✅ Toast 텍스트 UI 연결
     private Texture2D cameraTexture;
     private bool isProcessing = false;
+    private bool isScanned = false; // ✅ 중복 스캔 방지용
 
     private void OnEnable()
     {
@@ -18,6 +20,8 @@ public class QRScanner : MonoBehaviour
             arCameraManager.frameReceived += OnCameraFrameReceived;
         else
             Debug.LogError("[QRScanner] ARCameraManager NOT assigned!");
+
+        HideToast(); // 시작 시 숨김
     }
 
     private void OnDisable()
@@ -28,7 +32,7 @@ public class QRScanner : MonoBehaviour
 
     private void OnCameraFrameReceived(ARCameraFrameEventArgs args)
     {
-        if (isProcessing) return;
+        if (isProcessing || isScanned) return;
 
         if (arCameraManager.TryAcquireLatestCpuImage(out XRCpuImage image))
         {
@@ -40,7 +44,6 @@ public class QRScanner : MonoBehaviour
     {
         isProcessing = true;
 
-        // 낮은 해상도로 변환해서 ZXing 처리 속도 최적화
         var conversionParams = new XRCpuImage.ConversionParams
         {
             inputRect = new RectInt(0, 0, image.width, image.height),
@@ -62,23 +65,17 @@ public class QRScanner : MonoBehaviour
         cameraTexture.Apply();
         rawTextureData.Dispose();
 
-        Debug.Log($"[QRScanner] Processing Texture {cameraTexture.width}x{cameraTexture.height}");
-
-        // ZXing Decode
         try
         {
-            var barcodeReader = new BarcodeReader
-            {
-                AutoRotate = true,
-                TryInverted = true
-            };
-
+            var barcodeReader = new BarcodeReader { AutoRotate = true, TryInverted = true };
             var result = barcodeReader.Decode(cameraTexture.GetPixels32(), cameraTexture.width, cameraTexture.height);
 
             if (result != null)
             {
                 Debug.Log($"✅ QR Detected: {result.Text}");
                 ParseQRData(result.Text);
+                isScanned = true;
+                ShowToast("QR 인식 완료!"); // ✅ 화면에 표시
             }
         }
         catch (System.Exception e)
@@ -86,7 +83,6 @@ public class QRScanner : MonoBehaviour
             Debug.LogWarning($"[QRScanner] QR Decode Error: {e.Message}");
         }
 
-        // 다음 프레임까지 대기
         yield return new WaitForSeconds(0.2f);
         isProcessing = false;
     }
@@ -97,7 +93,7 @@ public class QRScanner : MonoBehaviour
         var pairs = data.Split(';');
         foreach (var p in pairs)
         {
-            var kv = p.Split(new char[] { '=' }, 2); // 🔹 최대 2개까지만 split
+            var kv = p.Split(new char[] { '=' }, 2); // 🔹 URL 안의 '=' 허용
             if (kv.Length == 2)
             {
                 string key = kv[0].Trim();
@@ -111,9 +107,27 @@ public class QRScanner : MonoBehaviour
                 Debug.LogWarning($"[QRScanner] Invalid pair skipped: {p}");
             }
         }
-
         PlayerPrefs.Save();
     }
 
+    // ✅ 간단한 Toast UI 표시
+    private void ShowToast(string message)
+    {
+        if (toastText == null) return;
+        toastText.text = message;
+        toastText.gameObject.SetActive(true);
+        StartCoroutine(HideToastAfterDelay(2f)); // 2초 후 숨기기
+    }
 
+    private IEnumerator HideToastAfterDelay(float delay)
+    {
+        yield return new WaitForSeconds(delay);
+        HideToast();
+    }
+
+    private void HideToast()
+    {
+        if (toastText != null)
+            toastText.gameObject.SetActive(false);
+    }
 }
