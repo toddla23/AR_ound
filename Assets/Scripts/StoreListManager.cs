@@ -9,7 +9,7 @@ public class StoreListManager : MonoBehaviour
     [SerializeField] private RectTransform contentParent; // ScrollView Content
     [SerializeField] private StoreItem itemPrefab;        // StoreItem 프리팹 드래그
 
-    private string storeListUrl = "http://localhost:8080/stores"; // 테스트용 URL
+    private string storeListUrl = "http://34.134.87.58:8080/stores"; // 테스트용 URL
 
     void Start()
     {

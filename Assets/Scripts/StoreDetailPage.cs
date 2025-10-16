@@ -10,7 +10,7 @@ public class StoreDetailPage : MonoBehaviour
     [SerializeField] private TMP_Text descriptionText;
     [SerializeField] private TMP_Text urlText;
 
-    private const string BASE_URL = "http://localhost:8080/stores";
+    private const string BASE_URL = "http://34.134.87.58:8080/stores";
 
     void Start()
     {
