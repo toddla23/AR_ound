@@ -4,24 +4,25 @@ using UnityEngine.XR.ARFoundation;
 using UnityEngine.XR.ARSubsystems;
 using ZXing;
 using Unity.Collections;
-using UnityEngine.UI; // ✅ UI 사용 추가
+using TMPro;
+using UnityEngine.Networking;
 
 public class QRScanner : MonoBehaviour
 {
     [SerializeField] private ARCameraManager arCameraManager;
-    [SerializeField] private Text toastText; // ✅ Toast 텍스트 UI 연결
+    [SerializeField] private TextMeshProUGUI toastText;    // 기존
+    [SerializeField] private TextMeshProUGUI toastText2;   // ✅ 새로 추가
+
     private Texture2D cameraTexture;
     private bool isProcessing = false;
-    private bool isScanned = false; // ✅ 중복 스캔 방지용
+    private bool isScanned = false;
 
     private void OnEnable()
     {
         if (arCameraManager != null)
             arCameraManager.frameReceived += OnCameraFrameReceived;
-        else
-            Debug.LogError("[QRScanner] ARCameraManager NOT assigned!");
 
-        HideToast(); // 시작 시 숨김
+        HideToast();
     }
 
     private void OnDisable()
@@ -72,15 +73,19 @@ public class QRScanner : MonoBehaviour
 
             if (result != null)
             {
-                Debug.Log($"✅ QR Detected: {result.Text}");
+                Debug.Log($"QR Detected: {result.Text}");
                 ParseQRData(result.Text);
                 isScanned = true;
-                ShowToast("QR 인식 완료!"); // ✅ 화면에 표시
+
+                if (PlayerPrefs.HasKey("Text"))
+                {
+                    StartCoroutine(RequestDescription(PlayerPrefs.GetString("Text")));
+                }
             }
         }
         catch (System.Exception e)
         {
-            Debug.LogWarning($"[QRScanner] QR Decode Error: {e.Message}");
+            Debug.LogWarning($"QR Decode Error: {e.Message}");
         }
 
         yield return new WaitForSeconds(0.2f);
@@ -89,34 +94,56 @@ public class QRScanner : MonoBehaviour
 
     private void ParseQRData(string data)
     {
-        // 예: "Prefab=ObjectA;URL=https://www.youtube.com/watch?v=_J-FCm91_is"
         var pairs = data.Split(';');
         foreach (var p in pairs)
         {
-            var kv = p.Split(new char[] { '=' }, 2); // 🔹 URL 안의 '=' 허용
+            var kv = p.Split(new char[] { '=' }, 2);
             if (kv.Length == 2)
             {
                 string key = kv[0].Trim();
                 string value = kv[1].Trim();
 
                 PlayerPrefs.SetString(key, value);
-                Debug.Log($"[QRScanner] Saved {key} = {value}");
-            }
-            else
-            {
-                Debug.LogWarning($"[QRScanner] Invalid pair skipped: {p}");
+                Debug.Log($"Saved {key} = {value}");
             }
         }
         PlayerPrefs.Save();
     }
 
-    // ✅ 간단한 Toast UI 표시
+    private IEnumerator RequestDescription(string url)
+    {
+        UnityWebRequest request = UnityWebRequest.Get(url);
+        yield return request.SendWebRequest();
+
+        if (request.result != UnityWebRequest.Result.Success)
+        {
+            ShowToast($"<mark=#ff4444AA>Error:</mark>\n{request.error}");
+        }
+        else
+        {
+            string desc = request.downloadHandler.text;
+
+
+            ShowToast(desc);
+        }
+    }
+
+    // ✅ toastText, toastText2 둘 다 표시
     private void ShowToast(string message)
     {
-        if (toastText == null) return;
-        toastText.text = message;
-        toastText.gameObject.SetActive(true);
-        StartCoroutine(HideToastAfterDelay(2f)); // 2초 후 숨기기
+        if (toastText != null)
+        {
+            toastText.text = $"{message}";
+            toastText.gameObject.SetActive(true);
+        }
+
+        if (toastText2 != null)
+        {
+            toastText2.text = $"<mark=#d0ee17AA>{message}</mark>";
+            toastText2.gameObject.SetActive(true);
+        }
+
+        StartCoroutine(HideToastAfterDelay(60f));
     }
 
     private IEnumerator HideToastAfterDelay(float delay)
@@ -129,5 +156,8 @@ public class QRScanner : MonoBehaviour
     {
         if (toastText != null)
             toastText.gameObject.SetActive(false);
+
+        if (toastText2 != null)
+            toastText2.gameObject.SetActive(false);
     }
 }

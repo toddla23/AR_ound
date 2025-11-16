@@ -2,58 +2,48 @@ using UnityEngine;
 using UnityEngine.XR.ARFoundation;
 using UnityEngine.XR.ARSubsystems;
 using System.Collections.Generic;
+using TMPro;  // ← TextMeshPro 추가
 
 public class ARPlacementController : MonoBehaviour
 {
     [SerializeField] private ARRaycastManager raycastManager;
+    [SerializeField] private TMP_Text toastText; // ← TMP_Text로 변경
+
     private GameObject spawnedObject;
 
     private string prefabName;
-    private string url;
+    private string qrText;
+
+    void Start()
+    {
+        if (toastText != null)
+            toastText.gameObject.SetActive(false);
+    }
 
     void Update()
     {
-        // ✅ QRScanner에서 저장한 값 불러오기
         prefabName = PlayerPrefs.GetString("Prefab", "");
-        url = PlayerPrefs.GetString("URL", "");
+        qrText = PlayerPrefs.GetString("Text", "");
 
-        // 디버그 로그
-        Debug.Log($"[ARPlacementController] Prefab='{prefabName}', URL='{url}'");
-
-        // ✅ 오브젝트 아직 없고, Prefab이 지정되어 있으면 배치 시도
         if (spawnedObject == null && !string.IsNullOrEmpty(prefabName))
-        {
             TrySpawnPrefab(prefabName);
-        }
 
-        Debug.Log($"[ARPlacementController] touchCount= {Input.touchCount}");
-        // ✅ 터치 감지 후 URL 열기
         if (spawnedObject != null && Input.touchCount > 0)
         {
             Touch touch = Input.GetTouch(0);
-                Debug.Log($"[ARPlacementController] 123456");
-
 
             if (touch.phase == TouchPhase.Began)
             {
-                Debug.Log($"[ARPlacementController] touch Start");
-
                 Ray ray = Camera.main.ScreenPointToRay(touch.position);
-                Debug.Log($"[ARPlacementController] ray Start");
 
                 if (Physics.Raycast(ray, out RaycastHit hit, Mathf.Infinity, ~0))
                 {
-                    Debug.Log($"[ARPlacementController] Ray hit: {hit.transform.name}");
-
-                    if (spawnedObject != null && hit.transform.gameObject == spawnedObject)
+                    if (hit.transform.gameObject == spawnedObject)
                     {
-                        Debug.Log($"[ARPlacementController] Object touched, opening URL: {url}");
-                        if (!string.IsNullOrEmpty(url))
-                            Application.OpenURL(url);
+                        ShowToast(qrText);
                     }
                 }
             }
-
         }
     }
 
@@ -62,29 +52,46 @@ public class ARPlacementController : MonoBehaviour
         GameObject prefab = Resources.Load<GameObject>($"Prefabs/{prefabName}");
         if (prefab == null)
         {
-            Debug.LogError($"[ARPlacementController] Prefab '{prefabName}' not found in Resources/Prefabs/");
+            Debug.LogError($"Prefab '{prefabName}' not found!");
             return;
         }
 
-        // 🔹 화면 중앙에서 평면 감지
         List<ARRaycastHit> hits = new List<ARRaycastHit>();
-        if (raycastManager.Raycast(new Vector2(Screen.width / 2, Screen.height / 2), hits, TrackableType.PlaneWithinPolygon))
+        if (raycastManager.Raycast(
+            new Vector2(Screen.width / 2, Screen.height / 2),
+            hits,
+            TrackableType.PlaneWithinPolygon))
         {
             Pose hitPose = hits[0].pose;
 
             spawnedObject = Instantiate(prefab, hitPose.position, hitPose.rotation);
-            Debug.Log($"[ARPlacementController] Spawned '{prefabName}' at {hitPose.position}");
 
-            // ✅ Collider 자동 추가 (없을 경우)
-            if (spawnedObject.GetComponent<Collider>() == null)
-            {
+            if (!spawnedObject.TryGetComponent(out Collider _))
                 spawnedObject.AddComponent<BoxCollider>();
-                Debug.Log($"[ARPlacementController] Collider added automatically to '{prefabName}'");
-            }
         }
-        else
-        {
-            Debug.LogWarning("[ARPlacementController] No plane detected yet, retrying...");
-        }
+    }
+
+    // -----------------------------
+    // Toast 메시지 기능 (하이라이트 적용)
+    // -----------------------------
+    private void ShowToast(string message)
+    {
+        if (toastText == null) return;
+
+        if (string.IsNullOrEmpty(message))
+            message = "⚠ QR에 텍스트가 없습니다.";
+
+        toastText.text = $"<mark=#d0ee17AA>{message}</mark>";
+
+        toastText.gameObject.SetActive(true);
+
+        StopAllCoroutines();
+        StartCoroutine(HideToast());
+    }
+
+    private System.Collections.IEnumerator HideToast()
+    {
+        yield return new WaitForSeconds(2f);
+        toastText.gameObject.SetActive(false);
     }
 }
