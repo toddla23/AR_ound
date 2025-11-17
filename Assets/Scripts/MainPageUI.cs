@@ -6,11 +6,15 @@ public class MainPageUI : MonoBehaviour
 {
     [SerializeField] private Button qrScanButton;
     [SerializeField] private Button storeListButton;
+    [SerializeField] private Button goCollectionButton;
+
 
     private void Start()
     {
         qrScanButton.onClick.AddListener(OnQRScanClicked);
         storeListButton.onClick.AddListener(OnStoreListClicked);
+        goCollectionButton.onClick.AddListener(OnGoCollectionClicked);
+
     }
 
     private void OnQRScanClicked()
@@ -21,6 +25,10 @@ public class MainPageUI : MonoBehaviour
     private void OnStoreListClicked()
     {
         SceneManager.LoadScene("StoreListScene");
+    }
+    private void OnGoCollectionClicked()
+    {
+        SceneManager.LoadScene("CollectionScene");
     }
 
     private void Update()

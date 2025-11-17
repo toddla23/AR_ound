@@ -2,17 +2,19 @@ using UnityEngine;
 using UnityEngine.XR.ARFoundation;
 using UnityEngine.XR.ARSubsystems;
 using System.Collections.Generic;
-using TMPro;  // ← TextMeshPro 추가
+using TMPro;  
+using UnityEngine.Networking;
 
 public class ARPlacementController : MonoBehaviour
 {
     [SerializeField] private ARRaycastManager raycastManager;
-    [SerializeField] private TMP_Text toastText; // ← TMP_Text로 변경
+    [SerializeField] private TMP_Text toastText;
 
     private GameObject spawnedObject;
 
     private string prefabName;
-    private string qrText;
+    private string qrTextUrl;  // ← GET 요청용 URL
+    private string qrOptionUrl; // ← QR의 URL= 항목
 
     void Start()
     {
@@ -23,7 +25,8 @@ public class ARPlacementController : MonoBehaviour
     void Update()
     {
         prefabName = PlayerPrefs.GetString("Prefab", "");
-        qrText = PlayerPrefs.GetString("Text", "");
+        qrTextUrl = PlayerPrefs.GetString("Text", "");  // 설명 URL
+        qrOptionUrl = PlayerPrefs.GetString("URL", ""); // 옵션 URL
 
         if (spawnedObject == null && !string.IsNullOrEmpty(prefabName))
             TrySpawnPrefab(prefabName);
@@ -36,11 +39,15 @@ public class ARPlacementController : MonoBehaviour
             {
                 Ray ray = Camera.main.ScreenPointToRay(touch.position);
 
-                if (Physics.Raycast(ray, out RaycastHit hit, Mathf.Infinity, ~0))
+                if (Physics.Raycast(ray, out RaycastHit hit))
                 {
                     if (hit.transform.gameObject == spawnedObject)
                     {
-                        ShowToast(qrText);
+                        // 🔥 터치하면 QR의 URL로 GET 요청!
+                        if (!string.IsNullOrEmpty(qrOptionUrl))
+                            StartCoroutine(RequestOption(qrOptionUrl));
+                        else
+                            ShowToast("<mark=#ff4444AA>URL 값이 없습니다.</mark>");
                     }
                 }
             }
@@ -72,17 +79,34 @@ public class ARPlacementController : MonoBehaviour
     }
 
     // -----------------------------
-    // Toast 메시지 기능 (하이라이트 적용)
+    // 🔥 URL GET 요청 (옵션 데이터 요청)
+    // -----------------------------
+    private System.Collections.IEnumerator RequestOption(string url)
+    {
+        UnityWebRequest request = UnityWebRequest.Get(url);
+        yield return request.SendWebRequest();
+
+        if (request.result != UnityWebRequest.Result.Success)
+        {
+            ShowToast($"<mark=#ff4444AA>Error:\n{request.error}</mark>");
+        }
+        else
+        {
+
+            string highlighted = $"수집 완료!";
+
+            ShowToast(highlighted);
+        }
+    }
+
+    // -----------------------------
+    // Toast 메시지 기능
     // -----------------------------
     private void ShowToast(string message)
     {
         if (toastText == null) return;
 
-        if (string.IsNullOrEmpty(message))
-            message = "⚠ QR에 텍스트가 없습니다.";
-
-        toastText.text = $"<mark=#d0ee17AA>{message}</mark>";
-
+        toastText.text = message;
         toastText.gameObject.SetActive(true);
 
         StopAllCoroutines();
@@ -91,7 +115,7 @@ public class ARPlacementController : MonoBehaviour
 
     private System.Collections.IEnumerator HideToast()
     {
-        yield return new WaitForSeconds(2f);
+        yield return new WaitForSeconds(3f);
         toastText.gameObject.SetActive(false);
     }
 }

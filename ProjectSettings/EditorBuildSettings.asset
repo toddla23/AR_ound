@@ -12,6 +12,9 @@ EditorBuildSettings:
     path: Assets/Scenes/QRScanScene.unity
     guid: 08bc953e38ac425488f69fa352c68523
   - enabled: 1
+    path: Assets/Scenes/CollectionScene.unity
+    guid: 94e2f52e80a42c546af2a9dd77af2247
+  - enabled: 1
     path: Assets/Scenes/StoreListScene.unity
     guid: 5127e057820b13542acd4446b0e82a7e
   - enabled: 1

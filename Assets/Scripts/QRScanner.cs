@@ -7,6 +7,7 @@ using Unity.Collections;
 using TMPro;
 using UnityEngine.Networking;
 
+// Prefab=ObjectA;Text=http://34.134.87.58:8080/discriptions/1;URL=http://qweasd/option/1
 public class QRScanner : MonoBehaviour
 {
     [SerializeField] private ARCameraManager arCameraManager;
@@ -143,7 +144,7 @@ public class QRScanner : MonoBehaviour
             toastText2.gameObject.SetActive(true);
         }
 
-        StartCoroutine(HideToastAfterDelay(60f));
+        StartCoroutine(HideToastAfterDelay(20f));
     }
 
     private IEnumerator HideToastAfterDelay(float delay)
