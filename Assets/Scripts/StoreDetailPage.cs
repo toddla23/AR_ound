@@ -8,17 +8,21 @@ public class StoreDetailPage : MonoBehaviour
 {
     [SerializeField] private TMP_Text storeNameText;
     [SerializeField] private TMP_Text descriptionText;
-    [SerializeField] private TMP_Text urlText;
+    [SerializeField] private UnityEngine.UI.Button urlButton; // ← 버튼만 표시
 
     private const string BASE_URL = "http://34.134.87.58:8080/stores";
 
+    private string storeUrl = null; // 서버에서 받아온 URL 저장용
+
     void Start()
     {
-        // StoreListManager에서 저장한 정보 불러오기
         string storeId = PlayerPrefs.GetString("SelectedStoreID", "-1");
         string storeName = PlayerPrefs.GetString("SelectedStoreName", "알 수 없는 가게");
 
         storeNameText.text = storeName;
+
+        // URL 로딩 전까지 버튼 비활성화
+        urlButton.interactable = false;
 
         if (storeId == "-1")
         {
@@ -45,30 +49,21 @@ public class StoreDetailPage : MonoBehaviour
             // JSON 파싱
             StoreDetailResponse data = JsonUtility.FromJson<StoreDetailResponse>(request.downloadHandler.text);
 
-            // UI 표시
+            // UI 적용
             descriptionText.text = data.description;
-            urlText.text = data.url;
+            storeUrl = data.url;  // URL 저장
 
-            // URL 클릭 이벤트 등록
-            AddUrlClickListener(data.url);
+            // URL 있으면 버튼 활성화
+            if (!string.IsNullOrEmpty(storeUrl))
+            {
+                urlButton.interactable = true;
+                urlButton.onClick.RemoveAllListeners();
+                urlButton.onClick.AddListener(() =>
+                {
+                    Application.OpenURL(storeUrl);
+                });
+            }
         }
-    }
-
-    void AddUrlClickListener(string url)
-    {
-        // TextMeshPro는 Button이 아니라 직접 클릭 감지해야 함
-        var urlButton = urlText.GetComponent<UnityEngine.UI.Button>();
-        if (urlButton == null)
-        {
-            // 버튼 컴포넌트가 없으면 자동 추가
-            urlButton = urlText.gameObject.AddComponent<UnityEngine.UI.Button>();
-        }
-
-        urlButton.onClick.RemoveAllListeners();
-        urlButton.onClick.AddListener(() =>
-        {
-            Application.OpenURL(url);
-        });
     }
 
     public void OnBack()

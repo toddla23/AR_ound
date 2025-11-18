@@ -144,7 +144,7 @@ public class QRScanner : MonoBehaviour
             toastText2.gameObject.SetActive(true);
         }
 
-        StartCoroutine(HideToastAfterDelay(20f));
+        StartCoroutine(HideToastAfterDelay(10f));
     }
 
     private IEnumerator HideToastAfterDelay(float delay)
