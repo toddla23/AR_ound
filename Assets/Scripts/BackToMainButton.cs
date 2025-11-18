@@ -7,7 +7,7 @@ public class BackToMainButton : MonoBehaviour
     private void Start()
     {
         // UI 버튼 클릭 이벤트 연결
-        GetComponent<Button>().onClick.AddListener(OnBackClicked);
+        // GetComponent<Button>().onClick.AddListener(OnBackClicked);
     }
 
     private void Update()
@@ -19,10 +19,10 @@ public class BackToMainButton : MonoBehaviour
         }
     }
 
-    private void OnBackClicked()
-    {
-        GoBack();
-    }
+    // private void OnBackClicked()
+    // {
+    //     GoBack();
+    // }
 
     private void GoBack()
     {

@@ -7,7 +7,7 @@ using Unity.Collections;
 using TMPro;
 using UnityEngine.Networking;
 
-// Prefab=ObjectA;Text=http://34.134.87.58:8080/discriptions/1;URL=http://qweasd/option/1
+// Prefab=Jug_02;Text=http://34.134.87.58:8080/discriptions/1;URL=http://34.134.87.58:8080/collections/1
 public class QRScanner : MonoBehaviour
 {
     [SerializeField] private ARCameraManager arCameraManager;
