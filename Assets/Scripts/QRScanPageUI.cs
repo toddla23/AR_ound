@@ -15,7 +15,7 @@ public class QRScanPageUI : MonoBehaviour
 
     private void OnQRScanClicked()
     {
-        SceneManager.LoadScene("StoreListScene");
+        SceneManager.LoadScene("CollectionScene");
     }
 
 

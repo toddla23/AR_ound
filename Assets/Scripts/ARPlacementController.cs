@@ -2,7 +2,7 @@ using UnityEngine;
 using UnityEngine.XR.ARFoundation;
 using UnityEngine.XR.ARSubsystems;
 using System.Collections.Generic;
-using TMPro;  
+using TMPro;
 using UnityEngine.Networking;
 
 public class ARPlacementController : MonoBehaviour
@@ -72,6 +72,9 @@ public class ARPlacementController : MonoBehaviour
             Pose hitPose = hits[0].pose;
 
             spawnedObject = Instantiate(prefab, hitPose.position, hitPose.rotation);
+
+            // ⭐ 오브젝트 크기 줄이기 (예: 30% 크기)
+            spawnedObject.transform.localScale = prefab.transform.localScale * 0.3f;
 
             if (!spawnedObject.TryGetComponent(out Collider _))
                 spawnedObject.AddComponent<BoxCollider>();
